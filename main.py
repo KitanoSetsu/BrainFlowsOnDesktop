@@ -1,6 +1,10 @@
 import argparse
 import time
 from collections import ChainMap
+import tkinter as tk
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 from brainflow.board_shim import BoardShim, BrainFlowInputParams, LogLevels, BoardIds
 from brainflow.data_filter import DataFilter
@@ -13,6 +17,8 @@ from constants import OSC_Path, OSC_BASE_PATH
 from logic.telemetry import Telemetry
 from logic.focus_relax import Focus_Relax
 from logic.heartrate import HeartRate
+
+
 
 def tryFunc(func, val):
     try:
@@ -123,7 +129,7 @@ def main():
         # Initialize board and logics
         board, logics, refresh_rate_hz = BoardInit(args)
 
-        while True:
+        def board_update(board, logics, refresh_rate_hz):
             try:
                 # get execution start time for time delay
                 start_time = time.time()
@@ -135,10 +141,8 @@ def main():
 
                 # Send messages from executed logic
                 BoardShim.log_message(LogLevels.LEVEL_DEBUG.value, "Sending")
-                osc_client.send_message(OSC_Path.ConnectionStatus, True)
                 for osc_name in full_dict:
                     BoardShim.log_message(LogLevels.LEVEL_DEBUG.value, "{}:\t{:.3f}".format(osc_name, full_dict[osc_name]))
-                    osc_client.send_message(OSC_BASE_PATH + osc_name, full_dict[osc_name])
                 
                 # sleep based on refresh_rate
                 BoardShim.log_message(LogLevels.LEVEL_DEBUG.value, "Sleeping")
@@ -161,6 +165,101 @@ def main():
                         break
                     except BrainFlowError as e:
                         BoardShim.log_message(LogLevels.LEVEL_INFO.value, 'Retry {} Biosensor board error: {}'.format(i, str(e)))
+            
+            return full_dict
+            
+        # 線グラフの初期化
+        fig = plt.figure()
+        label = ["Alpha", "Beta", "Theta", "Delta", "Gamma"]
+        axa = fig.add_subplot(2, 2, (3,4))
+        axl = fig.add_subplot(2, 2, 1)
+        axr = fig.add_subplot(2, 2, 2)
+        axa.set_ylim(0, 1.0)
+        axa.set_yticks([0, 0.5, 1])
+        axa.set_title("Average")
+        axl.set_ylim(0, 1.0)
+        axl.set_yticks([0, 0.5, 1])
+        axl.set_title("Left")
+        axr.set_ylim(0, 1.0)
+        axr.set_yticks([0, 0.5, 1])
+        axr.set_title("Right")
+        
+        linel, = axl.plot(range(5), [0, 0, 0, 0, 0])
+        liner, = axr.plot(range(5), [0, 0, 0, 0, 0])
+        linea, = axa.plot(range(5), [0, 0, 0, 0, 0])
+        barl = None
+        barr = None
+        bara = None
+        
+        dicti = board_update(board, logics, refresh_rate_hz)
+        for name in dicti.keys():
+            print(name) 
+
+        def plt_update(dicti, linel, liner, linea):
+            out = list(dicti.values())
+            outl = out[4:9]
+            outr = out[9:14]
+            outa = out[14:19]
+            linel.set_data(range(len(outl)), outl)
+            liner.set_data(range(len(outr)), outr)
+            linea.set_data(range(len(outa)), outa)
+            fig.canvas.draw()
+
+        def bar_update (dicti, barl, barr, bara):
+            if (barl is None):
+                barl, = axl.bar(range(5), [0, 0, 0, 0, 0], tick_label=label, color='blue')
+            if (barr is None):
+                barr, = axr.bar(range(5), [0, 0, 0, 0, 0], tick_label=label, color='blue')
+            if (bara is None):
+                bara, = axa.bar(range(5), [0, 0, 0, 0, 0], tick_label=label, color='blue')
+            out = list(dicti.values())
+            outs = [out[4:9], out[9:14], out[14:19]]
+            bars = [barl, barr, bara]
+            for j in range(len(bars)):
+                for i in range(len(bars[j])):
+                    bars[j][i].set_height(outs[j][i])
+            # axl.clear()
+            # axr.clear()
+            # axa.clear()
+            # axa.set_ylim(0, 1.0)
+            # axa.set_yticks([0, 0.5, 1])
+            # axa.set_title("Average")
+            # axl.set_ylim(0, 1.0)
+            # axl.set_yticks([0, 0.5, 1])
+            # axl.set_title("Left")
+            # axr.set_ylim(0, 1.0)
+            # axr.set_yticks([0, 0.5, 1])
+            # axr.set_title("Right")
+            # axl.bar(range(len(outl)), outl, tick_label=label)
+            # axr.bar(range(len(outr)), outr, tick_label=label)
+            # axa.bar(range(len(outa)), outa, tick_label=label)
+            fig.canvas.draw()
+        
+        # plt_update(dicti, linel, liner, linea)
+        
+        root = tk.Tk()
+        root.title("Tkinter + Matplotlib")
+        root.geometry("640x480")
+
+        # グラフをTkinterで表示
+        canvas = FigureCanvasTkAgg(fig, master=root)
+        canvas.get_tk_widget().pack()
+
+        button = tk.Button(root, text="Quit", command=lambda: root.destroy())
+        button.pack()
+
+
+        # グラフを更新する関数
+
+        def update(a):
+            dicti = board_update(board, logics, refresh_rate_hz)
+            plt_update(dicti, linel, liner, linea)
+            # bar_update(dicti, barl, barr, bara)
+
+        # アニメーションの作成
+        ani = animation.FuncAnimation(fig, update, interval=200)
+        root.mainloop()
+
 
     except KeyboardInterrupt:
         BoardShim.log_message(LogLevels.LEVEL_INFO.value, 'Shutting down')
