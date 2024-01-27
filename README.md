@@ -2,8 +2,8 @@
 
 # BrainFlowsOnDesktop
 
-脳波の計測結果をデスクトップアプリとして表示することを目的に、以下をForkしたリポジトリです。
-[bci-workshop fork](https://github.com/ChilloutCharles/bci-workshop)
+脳波の計測結果をデスクトップアプリとして表示することを目的に、[bci-workshop fork](https://github.com/ChilloutCharles/bci-workshop)をForkしたリポジトリです。
+
 
 **BrainFlowとは？**
 
