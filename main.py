@@ -1,10 +1,6 @@
 import argparse
 import time
 from collections import ChainMap
-import tkinter as tk
-import matplotlib.pyplot as plt
-import matplotlib.animation as animation
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 from brainflow.board_shim import BoardShim, BrainFlowInputParams, LogLevels, BoardIds
 from brainflow.data_filter import DataFilter
@@ -18,7 +14,7 @@ from logic.telemetry import Telemetry
 from logic.focus_relax import Focus_Relax
 from logic.heartrate import HeartRate
 
-
+import PySimpleGUI as sg
 
 def tryFunc(func, val):
     try:
@@ -168,98 +164,51 @@ def main():
             
             return full_dict
             
-        # 線グラフの初期化
-        fig = plt.figure()
-        label = ["Alpha", "Beta", "Theta", "Delta", "Gamma"]
-        axa = fig.add_subplot(2, 2, (3,4))
-        axl = fig.add_subplot(2, 2, 1)
-        axr = fig.add_subplot(2, 2, 2)
-        axa.set_ylim(0, 1.0)
-        axa.set_yticks([0, 0.5, 1])
-        axa.set_title("Average")
-        axl.set_ylim(0, 1.0)
-        axl.set_yticks([0, 0.5, 1])
-        axl.set_title("Left")
-        axr.set_ylim(0, 1.0)
-        axr.set_yticks([0, 0.5, 1])
-        axr.set_title("Right")
+        # ウィンドウのサイズとグラフの範囲
+        window_size = (400, 300)
+        graph_size = (300, 200)
+        graph_range = (300, 1)
+
+        # ウィンドウのレイアウト
+        layout = [
+            [sg.Text('Brain Waves', font=('Helvetica', 16), justification='center')],
+            [sg.Graph(canvas_size=graph_size, graph_bottom_left=(0, 0), graph_top_right=graph_range, background_color='white', key='GRAPH')]
+        ]
+
+        # ウィンドウの作成
+        window = sg.Window('Muse2 BrainWave Viewer', layout, finalize=True)
+        graph = window['GRAPH']
+        # 各値のラベル
+        bar_labels = ["Alpha", "Beta", "Theta", "Delta", "Gamma"]
+
+        def draw_bar_graph(graph, values):
+            graph.erase()
+            for i, value in enumerate(values):
+                # グラフの描画
+                graph.draw_rectangle(top_left=(i * 60 + 10, value), bottom_right=(i * 60 + 50, 0), fill_color='blue')
+                # ラベルの描画
+                graph.draw_text(text=bar_labels[i], location=(i * 60 + 30, 0.9), color='black', font=('Helvetica', 10))
+
+
+        while True:  # イベントループ
+            event, values = window.read(timeout=10)  # 10[ms]ごとにウィンドウを更新
+            if event == sg.WINDOW_CLOSED:
+                break
+
+            # ランダムな値でグラフを更新
+            full_dict = board_update(board, logics, refresh_rate_hz)
+            #各脳波の左右平均の値をfull_dictから抜き出す
+            # new_values = [tryFunc(lambda x: x, full_dict["osc_band_power_avg_alpha"]), 
+            #               tryFunc(lambda x: x, full_dict["osc_band_power_avg_beta"]), 
+            #               tryFunc(lambda x: x, full_dict["osc_band_power_avg_theta"]), 
+            #               tryFunc(lambda x: x, full_dict["osc_band_power_avg_delta"]), 
+            #               tryFunc(lambda x: x, full_dict["osc_band_power_avg_gamma"])]
+            new_values = [full_dict["osc_band_power_avg_alpha"], full_dict["osc_band_power_avg_beta"], full_dict["osc_band_power_avg_theta"], full_dict["osc_band_power_avg_delta"], full_dict["osc_band_power_avg_gamma"]]
+            draw_bar_graph(graph, new_values)
+
+        window.close()
+
         
-        linel, = axl.plot(range(5), [0, 0, 0, 0, 0])
-        liner, = axr.plot(range(5), [0, 0, 0, 0, 0])
-        linea, = axa.plot(range(5), [0, 0, 0, 0, 0])
-        barl = None
-        barr = None
-        bara = None
-        
-        dicti = board_update(board, logics, refresh_rate_hz)
-        for name in dicti.keys():
-            print(name) 
-
-        def plt_update(dicti, linel, liner, linea):
-            out = list(dicti.values())
-            outl = out[4:9]
-            outr = out[9:14]
-            outa = out[14:19]
-            linel.set_data(range(len(outl)), outl)
-            liner.set_data(range(len(outr)), outr)
-            linea.set_data(range(len(outa)), outa)
-            fig.canvas.draw()
-
-        def bar_update (dicti, barl, barr, bara):
-            if (barl is None):
-                barl, = axl.bar(range(5), [0, 0, 0, 0, 0], tick_label=label, color='blue')
-            if (barr is None):
-                barr, = axr.bar(range(5), [0, 0, 0, 0, 0], tick_label=label, color='blue')
-            if (bara is None):
-                bara, = axa.bar(range(5), [0, 0, 0, 0, 0], tick_label=label, color='blue')
-            out = list(dicti.values())
-            outs = [out[4:9], out[9:14], out[14:19]]
-            bars = [barl, barr, bara]
-            for j in range(len(bars)):
-                for i in range(len(bars[j])):
-                    bars[j][i].set_height(outs[j][i])
-            # axl.clear()
-            # axr.clear()
-            # axa.clear()
-            # axa.set_ylim(0, 1.0)
-            # axa.set_yticks([0, 0.5, 1])
-            # axa.set_title("Average")
-            # axl.set_ylim(0, 1.0)
-            # axl.set_yticks([0, 0.5, 1])
-            # axl.set_title("Left")
-            # axr.set_ylim(0, 1.0)
-            # axr.set_yticks([0, 0.5, 1])
-            # axr.set_title("Right")
-            # axl.bar(range(len(outl)), outl, tick_label=label)
-            # axr.bar(range(len(outr)), outr, tick_label=label)
-            # axa.bar(range(len(outa)), outa, tick_label=label)
-            fig.canvas.draw()
-        
-        # plt_update(dicti, linel, liner, linea)
-        
-        root = tk.Tk()
-        root.title("Tkinter + Matplotlib")
-        root.geometry("640x480")
-
-        # グラフをTkinterで表示
-        canvas = FigureCanvasTkAgg(fig, master=root)
-        canvas.get_tk_widget().pack()
-
-        button = tk.Button(root, text="Quit", command=lambda: root.destroy())
-        button.pack()
-
-
-        # グラフを更新する関数
-
-        def update(a):
-            dicti = board_update(board, logics, refresh_rate_hz)
-            plt_update(dicti, linel, liner, linea)
-            # bar_update(dicti, barl, barr, bara)
-
-        # アニメーションの作成
-        ani = animation.FuncAnimation(fig, update, interval=200)
-        root.mainloop()
-
 
     except KeyboardInterrupt:
         BoardShim.log_message(LogLevels.LEVEL_INFO.value, 'Shutting down')
