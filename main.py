@@ -161,6 +161,8 @@ def main():
                         break
                     except BrainFlowError as e:
                         BoardShim.log_message(LogLevels.LEVEL_INFO.value, 'Retry {} Biosensor board error: {}'.format(i, str(e)))
+                
+                return None
             
             return full_dict
             
