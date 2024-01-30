@@ -167,30 +167,47 @@ def main():
             return full_dict
             
         # ウィンドウのサイズとグラフの範囲
-        window_size = (400, 300)
-        graph_size = (300, 200)
-        graph_range = (300, 1)
+        window_size = (300, 400)
+        graph_size = (200, 300)
+        # graph_range = (300, 1)
 
         # ウィンドウのレイアウト
         layout = [
             [sg.Text('Brain Waves', font=('Helvetica', 16), justification='center')],
-            [sg.Graph(canvas_size=graph_size, graph_bottom_left=(0, 0), graph_top_right=graph_range, background_color='white', key='GRAPH')]
+            [sg.Graph(canvas_size=graph_size, graph_bottom_left=(0, 300), graph_top_right=(1, 0), background_color='white', key='GRAPH')],
+            [sg.Graph(canvas_size=(200, 200), graph_bottom_left=(-1, -1), graph_top_right=(1, 1), background_color='white', key='GRAPH2')]
         ]
 
         # ウィンドウの作成
         window = sg.Window('Muse2 BrainWave Viewer', layout, finalize=True)
         graph = window['GRAPH']
+        graph2 = window['GRAPH2']
         # 各値のラベル
-        bar_labels = ["Alpha", "Beta", "Theta", "Delta", "Gamma"]
+        bar_labels = ["α", "β", "θ", "δ", "γ"]
 
         def draw_bar_graph(graph, values):
             graph.erase()
             for i, value in enumerate(values):
                 # グラフの描画
-                graph.draw_rectangle(top_left=(i * 60 + 10, value), bottom_right=(i * 60 + 50, 0), fill_color='blue')
+                color = 'red' if i == 0 else 'green' if i == 1 else 'yellow' if i == 2 else 'orange' if i == 3 else 'purple'
+                graph.draw_rectangle(top_left=(0, i * 60 + 50), bottom_right=(value, i * 60 + 10), fill_color=color, line_color='black')
                 # ラベルの描画
-                graph.draw_text(text=bar_labels[i], location=(i * 60 + 30, 0.9), color='black', font=('Helvetica', 10))
+                graph.draw_text(text=bar_labels[i], location=(0.95, i * 60 + 30), color='black', font=('Helvetica', 10))
 
+        def draw_focusrelax_graph(graph, values):
+            graph.erase()
+            # 線の描画
+            graph.draw_line((-1, 0), (1, 0), color='black')
+            graph.draw_line((0, -1), (0, 1), color='black')
+            graph.draw_line((0.5, -0.1), (0.5, 0.1), color='black')
+            graph.draw_line((-0.1, 0.5), (0.1, 0.5), color='black')
+            graph.draw_line((-0.5, -0.1), (-0.5, 0.1), color='black')
+            graph.draw_line((-0.1, -0.5), (0.1, -0.5), color='black')
+            # グラフの描画
+            graph.draw_circle(center_location=(new_values2[0], new_values2[1]), radius=0.1, fill_color='red')
+            # ラベルの描画
+            graph.draw_text(text="Focus", location=(0.85, 0.1), color='black', font=('Helvetica', 10))
+            graph.draw_text(text="Relax", location=(0, 0.95), color='black', font=('Helvetica', 10))
 
         while True:  # イベントループ
             event, values = window.read(timeout=10)  # 10[ms]ごとにウィンドウを更新
@@ -205,8 +222,12 @@ def main():
             #               tryFunc(lambda x: x, full_dict["osc_band_power_avg_theta"]), 
             #               tryFunc(lambda x: x, full_dict["osc_band_power_avg_delta"]), 
             #               tryFunc(lambda x: x, full_dict["osc_band_power_avg_gamma"])]
+            if full_dict is None:
+                continue
             new_values = [full_dict["osc_band_power_avg_alpha"], full_dict["osc_band_power_avg_beta"], full_dict["osc_band_power_avg_theta"], full_dict["osc_band_power_avg_delta"], full_dict["osc_band_power_avg_gamma"]]
+            new_values2 = [full_dict["osc_focus_avg"], full_dict["osc_relax_avg"]]
             draw_bar_graph(graph, new_values)
+            draw_focusrelax_graph(graph2, new_values2)
 
         window.close()
 
